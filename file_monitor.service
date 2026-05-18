@@ -1,0 +1,58 @@
+# ============================================================
+# File Monitor - Systemd 服务模板
+# ============================================================
+#
+# 使用方式:
+#   1. 修改 User/Group/ExecStart 中的路径
+#   2. 复制到系统目录: sudo cp file_monitor.service /etc/systemd/system/
+#   3. 重新加载配置:  sudo systemctl daemon-reload
+#   4. 启动服务:      sudo systemctl start file_monitor
+#   5. 开机自启:      sudo systemctl enable file_monitor
+#   6. 查看日志:      sudo journalctl -u file_monitor -f
+#
+# --- Demo: 安装后的管理命令 ---
+#   sudo systemctl start   file_monitor   # 启动
+#   sudo systemctl stop    file_monitor   # 停止
+#   sudo systemctl restart file_monitor   # 重启
+#   sudo systemctl status  file_monitor   # 查看状态
+#   sudo journalctl -u file_monitor -f    # 实时查看日志
+# ============================================================
+
+[Unit]
+Description=File Monitor - 文件变动监控告警服务
+Documentation=https://github.com/your-org/file_monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# 运行类型: 简单模式（前台进程）
+Type=simple
+
+# 运行用户（建议使用普通用户，不要用 root）
+User=www
+Group=www
+
+# 工作目录
+WorkingDirectory=/path/to/file_monitor
+
+# 启动命令
+# 注意: 修改为实际的配置文件和脚本路径
+ExecStart=/bin/bash /path/to/file_monitor/file_monitor.sh -c /path/to/file_monitor/file_monitor.conf
+
+# 重启策略
+Restart=always
+RestartSec=10
+
+# 资源限制
+LimitNOFILE=65536
+
+# 停止信号
+KillMode=process
+KillSignal=SIGTERM
+
+# 日志输出
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
