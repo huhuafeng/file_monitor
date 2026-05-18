@@ -111,6 +111,29 @@ bash file_monitor.sh -h
       (批量收尾)                    (流式事件兜底)
 ```
 
+## 环境变量
+
+支持用环境变量覆盖 Webhook URL，优先级高于配置文件，适合避免密钥落盘：
+
+| 环境变量 | 覆盖配置项 | 使用示例 |
+|----------|-----------|---------|
+| `FILE_MONITOR_WECOM_URL` | `WECOM_WEBHOOK_URL` | 临时设置（推荐） |
+| `FILE_MONITOR_FEISHU_URL` | `FEISHU_WEBHOOK_URL` | 配合 systemd |
+
+```bash
+# 单次运行（密钥不落盘）
+FILE_MONITOR_WECOM_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx" \
+FILE_MONITOR_FEISHU_URL="https://open.feishu.cn/open-apis/bot/v2/hook/xxx" \
+bash file_monitor.sh
+
+# systemd 配合 EnvironmentFile
+# 在 file_monitor.service 中添加:
+# EnvironmentFile=/etc/file_monitor/env
+# /etc/file_monitor/env 内容（建议 600 权限）:
+#   FILE_MONITOR_WECOM_URL="https://..."
+#   FILE_MONITOR_FEISHU_URL="https://..."
+```
+
 ### 其他
 
 | 配置项 | 默认值 | 说明 |

@@ -120,6 +120,19 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 fi
 source "$CONFIG_FILE"
 
+# ---
+# 环境变量覆盖（优先级高于配置文件）
+# 使用方式:
+#   export FILE_MONITOR_WECOM_URL="https://..."
+#   bash file_monitor.sh
+#
+# 或单次运行:
+#   FILE_MONITOR_WECOM_URL="..." FILE_MONITOR_FEISHU_URL="..." bash file_monitor.sh
+#
+# 配合 systemd 可在 service 文件中使用 EnvironmentFile
+# ---
+WECOM_WEBHOOK_URL="${FILE_MONITOR_WECOM_URL:-$WECOM_WEBHOOK_URL}"
+FEISHU_WEBHOOK_URL="${FILE_MONITOR_FEISHU_URL:-$FEISHU_WEBHOOK_URL}"
 
 # ---
 # 校验配置各项是否合法
