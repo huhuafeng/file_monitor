@@ -828,18 +828,32 @@ echo "[INFO] 开始监控..."
             #   -m       持续监控（monitor），不退出
             #   -r       递归监控子目录
             #   -e       监控的事件类型
-            #   --exclude 排除目录（正则 OR 格式）
+            #   --exclude 排除目录（正则 OR 格式），为空时不传此参数
             #   --format 输出格式: %w=目录路径 %f=文件名 %e=事件类型
+            #
+            # 注意: --exclude 必须传非空值，空值会导致正则 () 匹配所有路径
+            #       从而排除所有事件。详见: https://example.com/regex-empty-group
             # ---
-            inotifywait -m -r \
-                -e create \
-                -e delete \
-                -e modify \
-                -e moved_to \
-                -e moved_from \
-                --exclude "(${EXCLUDE_DIRS})" \
-                "$folder" \
-                --format '%w%f %e' &
+            if [[ -n "$EXCLUDE_DIRS" ]]; then
+                inotifywait -m -r \
+                    -e create \
+                    -e delete \
+                    -e modify \
+                    -e moved_to \
+                    -e moved_from \
+                    --exclude "(${EXCLUDE_DIRS})" \
+                    "$folder" \
+                    --format '%w%f %e' &
+            else
+                inotifywait -m -r \
+                    -e create \
+                    -e delete \
+                    -e modify \
+                    -e moved_to \
+                    -e moved_from \
+                    "$folder" \
+                    --format '%w%f %e' &
+            fi
 
             # 记录 inotifywait 进程 PID，用于退出时清理
             echo $! >> "$INOTIFY_PID_FILE"
@@ -850,7 +864,7 @@ echo "[INFO] 开始监控..."
 
     # 等待所有子进程（保持左管道打开）
     wait
-} | while IFS= read -r file_path event_type; do
+} | while read -r file_path event_type; do
 
     # --------------------------------------------------
     # 文件名过滤
