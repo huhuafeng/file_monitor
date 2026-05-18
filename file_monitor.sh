@@ -675,15 +675,17 @@ send_aggregated_alert() {
     fi
 
     # 组装完整消息
+    # 使用 $'\n' 插入实际换行符，这样 json_escape 能正确转义为 JSON 标准的 \n，
+    # 企业微信和飞书都能正确显示换行（字面量 \n 仅企业微信支持，飞书不支持）。
     local alert_message
-    alert_message="[${CLIENT_NAME}] 文件变动警报！\n"
-    alert_message+="涉及目录: ${first_dir}\n"
-    alert_message+="总数: ${events_count} 个事件\n"
-    alert_message+="时间: $(date '+%Y-%m-%d %H:%M:%S')\n\n"
-    alert_message+="前 ${DISPLAY_COUNT} 条变化:\n"
-    alert_message+="${details_part}\n"
-    alert_message+="${overflow_part}\n\n"
-    alert_message+="完整日志: ${log_file}"
+    alert_message="[${CLIENT_NAME}] 文件变动警报！"
+    alert_message+=$'\n涉及目录: '"${first_dir}"
+    alert_message+=$'\n总数: '"${events_count} 个事件"
+    alert_message+=$'\n时间: '"$(date '+%Y-%m-%d %H:%M:%S')"
+    alert_message+=$'\n\n前 '"${DISPLAY_COUNT} 条变化:"
+    alert_message+=$'\n'"${details_part}"
+    alert_message+=$'\n'"${overflow_part}"
+    alert_message+=$'\n\n完整日志: '"${log_file}"
 
     # --------------------------------------------------
     # 第 4 步: 发送通知（异步）
