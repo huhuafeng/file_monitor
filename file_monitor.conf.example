@@ -1,19 +1,20 @@
 # ============================================================
-# File Monitor 配置文件
+# File Monitor 配置文件示例（模板）
 # ============================================================
-# 文件说明:
-#   本文件由 file_monitor.sh 在启动时通过 source 加载，
-#   所有配置项在此集中管理，无需修改主脚本。
 #
 # 使用方式:
-#   1. 按需修改下方配置项
-#   2. 运行: bash file_monitor.sh
-#   3. 或指定配置: bash file_monitor.sh -c /path/to/your.conf
+#   1. 复制此文件为 file_monitor.conf
+#      cp file_monitor.conf.example file_monitor.conf
+#   2. 修改 file_monitor.conf 中的配置项
+#   3. 运行: bash file_monitor.sh
+#
+# 安全说明:
+#   file_monitor.conf（实际配置文件）已被 .gitignore 排除，
+#   不会提交到 git 仓库，请放心填写真实的 Webhook URL 等密钥。
 #
 # 升级注意事项:
 #   升级主脚本时无需修改此配置文件，配置与代码完全分离。
 # ============================================================
-
 
 
 
@@ -30,7 +31,7 @@
 #   CLIENT_NAME="张三网络科技有限公司"
 #   CLIENT_NAME="李四电商平台"
 # ----------------------------------------------------------
-CLIENT_NAME="客户A"
+CLIENT_NAME="请修改为您的客户名称"
 
 
 # ----------------------------------------------------------
@@ -41,7 +42,7 @@ CLIENT_NAME="客户A"
 #   feishu - 仅发送飞书
 #   both   - 企业微信和飞书同时发送
 # ----------------------------------------------------------
-NOTIFY_CHANNEL="both"
+NOTIFY_CHANNEL="wecom"
 
 
 # ----------------------------------------------------------
@@ -54,7 +55,7 @@ NOTIFY_CHANNEL="both"
 # 示例:
 #   WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 # ----------------------------------------------------------
-WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_WECOM_WEBHOOK_KEY"
+WECOM_WEBHOOK_URL=""
 
 
 # ----------------------------------------------------------
@@ -67,7 +68,7 @@ WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_WEC
 # 示例:
 #   FEISHU_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 # ----------------------------------------------------------
-FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_FEISHU_WEBHOOK_KEY
+FEISHU_WEBHOOK_URL=""
 
 
 
@@ -85,9 +86,8 @@ FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_FEISHU_WEBH
 #   WATCH_FOLDERS=("/www/wwwroot/site1" "/www/wwwroot/site2" "/var/www/html")
 # ----------------------------------------------------------
 WATCH_FOLDERS=(
-    "/www/wwwroot/www.xxxxxx.com"
-    "/www/wwwroot/mp.xxxxxx.com"
-    "/home"
+    "/www/wwwroot/your-site-1"
+    "/www/wwwroot/your-site-2"
 )
 
 
