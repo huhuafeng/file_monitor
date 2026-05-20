@@ -10,6 +10,15 @@
 #   5. 开机自启:      sudo systemctl enable file_monitor
 #   6. 查看日志:      sudo journalctl -u file_monitor -f
 #
+# 密钥管理（推荐）:
+#   使用 EnvironmentFile 避免敏感信息写入 service 文件本身:
+#   1. 创建 /etc/file_monitor/env，内容如下（权限设为 600）:
+#        FILE_MONITOR_WECOM_URL="https://qyapi.weixin.qq.com/..."
+#        FILE_MONITOR_FEISHU_URL="https://open.feishu.cn/..."
+#        FILE_MONITOR_DINGTALK_URL="https://oapi.dingtalk.com/..."
+#   2. 取消下文的 EnvironmentFile 注释
+#   3. 重启服务: sudo systemctl restart file_monitor
+#
 # --- Demo: 安装后的管理命令 ---
 #   sudo systemctl start   file_monitor   # 启动
 #   sudo systemctl stop    file_monitor   # 停止

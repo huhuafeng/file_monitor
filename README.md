@@ -1,12 +1,12 @@
 # File Monitor 文件变动监控告警工具
 
-实时监控指定目录的文件变动事件，聚合后通过企业微信/飞书发送通知，并生成完整事件日志。
+实时监控指定目录的文件变动事件，聚合后通过企业微信/飞书/钉钉发送通知，并生成完整事件日志。
 
 ## 功能特性
 
 - **实时监控** — 基于 inotify 机制，毫秒级捕获文件创建、修改、删除、移动事件
 - **双阈值聚合** — `空闲超时` + `最大窗口` 组合策略，防消息轰炸
-- **多通道通知** — 支持企业微信、飞书机器人，可单发或双发
+- **多通道通知** — 支持企业微信、飞书、钉钉机器人，可单发、多发或全发
 - **文件过滤** — 按扩展名/类型正则过滤，支持排除目录
 - **完整日志** — 每次告警生成独立日志文件，100% 记录所有事件
 - **非阻塞发送** — 异步 HTTP 请求，不影响监控主循环
@@ -53,7 +53,7 @@ sudo apk add inotify-tools curl
 
 ```bash
 CLIENT_NAME="贵司名称"
-NOTIFY_CHANNEL="wecom"
+NOTIFY_CHANNEL="wecom"        # wecom / feishu / dingtalk / both / all
 WECOM_WEBHOOK_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
 WATCH_FOLDERS=("/www/wwwroot/你的站点")
 ```
@@ -82,9 +82,10 @@ bash file_monitor.sh -h
 | 配置项 | 必填 | 说明 | 示例 |
 |--------|------|------|------|
 | `CLIENT_NAME` | 是 | 消息头部标识，多客户时区分来源 | `"张三科技有限公司"` |
-| `NOTIFY_CHANNEL` | 是 | 通知渠道: wecom / feishu / both | `"wecom"` |
+| `NOTIFY_CHANNEL` | 是 | 通知渠道: wecom / feishu / dingtalk / both / all | `"wecom"` |
 | `WECOM_WEBHOOK_URL` | 条件 | 企微 Webhook，渠道含 wecom 时必填 | `"https://qyapi.weixin.qq.com/..."` |
 | `FEISHU_WEBHOOK_URL` | 条件 | 飞书 Webhook，渠道含 feishu 时必填 | `"https://open.feishu.cn/..."` |
+| `DINGTALK_WEBHOOK_URL` | 条件 | 钉钉 Webhook，渠道含 dingtalk 时必填 | `"https://oapi.dingtalk.com/..."` |
 
 ### 监控配置
 
@@ -119,11 +120,13 @@ bash file_monitor.sh -h
 |----------|-----------|---------|
 | `FILE_MONITOR_WECOM_URL` | `WECOM_WEBHOOK_URL` | 临时设置（推荐） |
 | `FILE_MONITOR_FEISHU_URL` | `FEISHU_WEBHOOK_URL` | 配合 systemd |
+| `FILE_MONITOR_DINGTALK_URL` | `DINGTALK_WEBHOOK_URL` | 临时设置（推荐） |
 
 ```bash
 # 单次运行（密钥不落盘）
 FILE_MONITOR_WECOM_URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx" \
 FILE_MONITOR_FEISHU_URL="https://open.feishu.cn/open-apis/bot/v2/hook/xxx" \
+FILE_MONITOR_DINGTALK_URL="https://oapi.dingtalk.com/robot/send?access_token=xxx" \
 bash file_monitor.sh
 
 # systemd 配合 EnvironmentFile
@@ -132,6 +135,7 @@ bash file_monitor.sh
 # /etc/file_monitor/env 内容（建议 600 权限）:
 #   FILE_MONITOR_WECOM_URL="https://..."
 #   FILE_MONITOR_FEISHU_URL="https://..."
+#   FILE_MONITOR_DINGTALK_URL="https://..."
 ```
 
 ### 其他
@@ -144,7 +148,7 @@ bash file_monitor.sh
 
 ## 通知效果示例
 
-**企业微信 / 飞书消息：**
+**企业微信 / 飞书 / 钉钉消息：**
 
 ```
 [张三科技有限公司] 文件变动警报！
@@ -188,6 +192,14 @@ bash file_monitor.sh
 1. 打开目标飞书群 → 点击右上角 `...` → 设置 → 群机器人
 2. 点击"添加机器人" → 选择"自定义机器人" → 完成配置
 3. 复制 Webhook URL → 粘贴到 `FEISHU_WEBHOOK_URL`
+
+### 钉钉
+
+1. 打开目标钉钉群 → 点击右上角 `...` → 智能群助手
+2. 点击"添加机器人" → 选择"自定义" → 输入机器人名称
+3. 配置安全设置（推荐加签方式），复制 Webhook URL
+4. URL 格式: `https://oapi.dingtalk.com/robot/send?access_token=xxx`
+5. 粘贴到 `DINGTALK_WEBHOOK_URL`，如有加签密钥需配置在 URL 后面
 
 ## 高级用法
 
@@ -257,7 +269,7 @@ WATCH_REGEX='\.php$'
 
 1. 检查 Webhook URL 是否正确
 2. 检查网络连通性
-3. 查看 `目录中.log/send_error.log` 是否有发送失败记录
+3. 查看 `ALERT_LOG_DIR/send_error.log` 是否有发送失败记录
 
 **Q: 如何调试事件捕获？**
 

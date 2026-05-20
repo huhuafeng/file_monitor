@@ -5,7 +5,7 @@
 # ============================================================
 # 功能说明:
 #   监控指定目录的文件变动事件，聚合窗口内的所有事件后，
-#   通过企业微信/飞书机器人发送通知，并生成完整事件日志。
+#   通过企业微信/飞书/钉钉机器人发送通知，并生成完整事件日志。
 #
 # 适用场景:
 #   - 网站被非法篡改时即刻告警
@@ -14,7 +14,7 @@
 #
 # 核心特性:
 #   1. 双阈值聚合策略（空闲超时 + 最大窗口），防止消息轰炸
-#   2. 支持企业微信和飞书双通道通知
+#   2. 支持企业微信、飞书、钉钉多渠道通知
 #   3. 每次告警生成独立日志文件，完整记录所有事件
 #   4. 可配置的文件类型过滤和目录排除
 #   5. 单例运行保护，防止重复启动
@@ -127,12 +127,13 @@ source "$CONFIG_FILE"
 #   bash file_monitor.sh
 #
 # 或单次运行:
-#   FILE_MONITOR_WECOM_URL="..." FILE_MONITOR_FEISHU_URL="..." bash file_monitor.sh
+#   FILE_MONITOR_WECOM_URL="..." FILE_MONITOR_FEISHU_URL="..." FILE_MONITOR_DINGTALK_URL="..." bash file_monitor.sh
 #
 # 配合 systemd 可在 service 文件中使用 EnvironmentFile
 # ---
 WECOM_WEBHOOK_URL="${FILE_MONITOR_WECOM_URL:-$WECOM_WEBHOOK_URL}"
 FEISHU_WEBHOOK_URL="${FILE_MONITOR_FEISHU_URL:-$FEISHU_WEBHOOK_URL}"
+DINGTALK_WEBHOOK_URL="${FILE_MONITOR_DINGTALK_URL:-$DINGTALK_WEBHOOK_URL}"
 
 # ---
 # 校验配置各项是否合法
@@ -147,21 +148,27 @@ validate_config() {
     fi
 
     # 检查通知渠道
-    if [[ "$NOTIFY_CHANNEL" != "wecom" && "$NOTIFY_CHANNEL" != "feishu" && "$NOTIFY_CHANNEL" != "both" ]]; then
-        echo "[错误] NOTIFY_CHANNEL 必须为 wecom / feishu / both 之一（当前值: $NOTIFY_CHANNEL）"
+    if [[ "$NOTIFY_CHANNEL" != "wecom" && "$NOTIFY_CHANNEL" != "feishu" && "$NOTIFY_CHANNEL" != "dingtalk" && "$NOTIFY_CHANNEL" != "both" && "$NOTIFY_CHANNEL" != "all" ]]; then
+        echo "[错误] NOTIFY_CHANNEL 必须为 wecom / feishu / dingtalk / both / all 之一（当前值: $NOTIFY_CHANNEL）"
         has_error=1
     fi
 
     # 检查 Webhook URL（根据渠道选择性检查）
-    if [[ "$NOTIFY_CHANNEL" == "wecom" || "$NOTIFY_CHANNEL" == "both" ]]; then
+    if [[ "$NOTIFY_CHANNEL" == "wecom" || "$NOTIFY_CHANNEL" == "both" || "$NOTIFY_CHANNEL" == "all" ]]; then
         if [[ -z "$WECOM_WEBHOOK_URL" ]]; then
             echo "[错误] NOTIFY_CHANNEL 包含 wecom，但 WECOM_WEBHOOK_URL 未设置"
             has_error=1
         fi
     fi
-    if [[ "$NOTIFY_CHANNEL" == "feishu" || "$NOTIFY_CHANNEL" == "both" ]]; then
+    if [[ "$NOTIFY_CHANNEL" == "feishu" || "$NOTIFY_CHANNEL" == "both" || "$NOTIFY_CHANNEL" == "all" ]]; then
         if [[ -z "$FEISHU_WEBHOOK_URL" ]]; then
             echo "[错误] NOTIFY_CHANNEL 包含 feishu，但 FEISHU_WEBHOOK_URL 未设置"
+            has_error=1
+        fi
+    fi
+    if [[ "$NOTIFY_CHANNEL" == "dingtalk" || "$NOTIFY_CHANNEL" == "both" || "$NOTIFY_CHANNEL" == "all" ]]; then
+        if [[ -z "$DINGTALK_WEBHOOK_URL" ]]; then
+            echo "[错误] NOTIFY_CHANNEL 包含 dingtalk，但 DINGTALK_WEBHOOK_URL 未设置"
             has_error=1
         fi
     fi
@@ -506,6 +513,58 @@ EOF
 
 
 # ---
+# 发送消息到钉钉
+# ---
+# 用途: 通过钉钉群机器人 Webhook 发送文本消息
+# ---
+# 参数: $1 - 要发送的消息内容（纯文本）
+# 返回: 0=成功 1=失败
+# ---
+# 说明: 钉钉 text 消息 JSON 结构与企微相同
+#       企微: {"msgtype":"text","text":{"content":"..."}}
+#       钉钉: {"msgtype":"text","text":{"content":"..."}}
+# ---
+send_to_dingtalk() {
+    local message="$1"
+    local escaped_message
+    escaped_message=$(json_escape "$message")
+
+    # 构建钉钉 text 消息 JSON
+    local json_data
+    json_data=$(cat <<EOF
+{
+    "msgtype": "text",
+    "text": {
+        "content": "${escaped_message}"
+    }
+}
+EOF
+)
+
+    # 异步发送，逻辑与企微相同
+    {
+        curl -X POST "$DINGTALK_WEBHOOK_URL" \
+             -H 'Content-Type: application/json' \
+             -d "$json_data" \
+             --max-time 10 \
+             --retry 2 \
+             --retry-delay 1 \
+             --fail --silent > /dev/null 2>&1
+
+        if [[ $? -ne 0 ]]; then
+            echo "[错误] 钉钉消息发送失败" >> "${ALERT_LOG_DIR}/send_error.log"
+            echo "  时间: $(date '+%Y-%m-%d %H:%M:%S')" >> "${ALERT_LOG_DIR}/send_error.log"
+            echo "  消息摘要: ${message:0:100}..." >> "${ALERT_LOG_DIR}/send_error.log"
+            echo "------------------------------------------------" >> "${ALERT_LOG_DIR}/send_error.log"
+            echo "[SEND_FAILED] 钉钉发送失败 | $(date '+%Y-%m-%d %H:%M:%S')"
+        fi
+    } &
+
+    return 0
+}
+
+
+# ---
 # 通知调度函数
 # ---
 # 功能: 根据 NOTIFY_CHANNEL 配置，将消息分发到对应渠道
@@ -517,17 +576,23 @@ send_notification() {
     local message="$1"
 
     # --- Demo ---
-    # NOTIFY_CHANNEL="wecom"  → 仅发企业微信
-    # NOTIFY_CHANNEL="feishu" → 仅发飞书
-    # NOTIFY_CHANNEL="both"   → 两个同时发
+    # NOTIFY_CHANNEL="wecom"    → 仅发企业微信
+    # NOTIFY_CHANNEL="feishu"   → 仅发飞书
+    # NOTIFY_CHANNEL="dingtalk" → 仅发钉钉
+    # NOTIFY_CHANNEL="both"     → 企微+飞书
+    # NOTIFY_CHANNEL="all"      → 企微+飞书+钉钉
     # --- End Demo ---
 
-    if [[ "$NOTIFY_CHANNEL" == "wecom" || "$NOTIFY_CHANNEL" == "both" ]]; then
+    if [[ "$NOTIFY_CHANNEL" == "wecom" || "$NOTIFY_CHANNEL" == "both" || "$NOTIFY_CHANNEL" == "all" ]]; then
         send_to_wecom "$message"
     fi
 
-    if [[ "$NOTIFY_CHANNEL" == "feishu" || "$NOTIFY_CHANNEL" == "both" ]]; then
+    if [[ "$NOTIFY_CHANNEL" == "feishu" || "$NOTIFY_CHANNEL" == "both" || "$NOTIFY_CHANNEL" == "all" ]]; then
         send_to_feishu "$message"
+    fi
+
+    if [[ "$NOTIFY_CHANNEL" == "dingtalk" || "$NOTIFY_CHANNEL" == "all" ]]; then
+        send_to_dingtalk "$message"
     fi
 }
 
@@ -622,7 +687,7 @@ cleanup_old_logs() {
 # 1. 脚本将这些事件收集到临时文件
 # 2. IDLE_TIMEOUT=5 秒后无新事件，触发发送
 # 3. 所有 23 个事件写入独立日志: /var/log/file_monitor/alert_2026-05-18_10-30-00.log
-# 4. 企业微信/飞书发送摘要通知（前 5 条）
+# 4. 企业微信/飞书/钉钉发送摘要通知（前 5 条）
 # 5. 临时文件清空，准备接收下一批
 # --- End Demo ---
 # ---
@@ -689,7 +754,7 @@ send_aggregated_alert() {
 
     # 组装完整消息
     # 使用 $'\n' 插入实际换行符，这样 json_escape 能正确转义为 JSON 标准的 \n，
-    # 企业微信和飞书都能正确显示换行（字面量 \n 仅企业微信支持，飞书不支持）。
+    # 企业微信、飞书、钉钉都能正确显示换行（字面量 \n 仅企业微信支持，飞书和钉钉不支持）。
     local alert_message
     alert_message="[${CLIENT_NAME}] 文件变动警报！"
     alert_message+=$'\n涉及目录: '"${first_dir}"
